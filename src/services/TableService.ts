@@ -11,19 +11,19 @@ import {
 export class TableService {
   constructor(@Inject("dynamoDBInstance") private dynamodb: DynamoDB) {}
 
-  listTables = async (params: ListTablesInput = {}) => {
+  listTables = (params: ListTablesInput = {}) => {
     return this.dynamodb.listTables(params).promise();
   };
 
-  describeTable = async (params: DescribeTableInput) => {
+  describeTable = (params: DescribeTableInput) => {
     return this.dynamodb.describeTable(params).promise();
   };
 
-  createTable = async (createTableInput: CreateTableInput) => {
+  createTable = (createTableInput: CreateTableInput) => {
     return this.dynamodb.createTable(createTableInput).promise();
   };
 
-  deleteTable = async (deleteTableInput: DeleteTableInput) => {
+  deleteTable = (deleteTableInput: DeleteTableInput) => {
     return this.dynamodb.deleteTable(deleteTableInput).promise();
   };
 }

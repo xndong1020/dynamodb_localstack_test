@@ -560,3 +560,414 @@ export const createTableInput: CreateTableInput = {
 ```
 
 Note: When you create a table, all the attributes must be part of primary key, or be part of secondary indexes. Otherwise, the table creation will fail.
+
+#### 43. Write Operations - Item Level Operations with AWS SDK
+
+`services/TableItemService.ts`
+
+```ts
+import { Inject, Service } from "typedi";
+import {
+  BatchGetItemInput,
+  BatchWriteItemInput,
+  DeleteItemInput,
+  DocumentClient,
+  GetItemInput,
+  PutItemInput,
+  QueryInput,
+  ScanInput,
+  UpdateItemInput,
+} from "aws-sdk/clients/dynamodb";
+
+@Service()
+export class TableItemService {
+  constructor(
+    @Inject("dynamoDbDocumentClient") private documentClient: DocumentClient
+  ) {}
+
+  put = (params: PutItemInput) => {
+    return this.documentClient.put(params).promise();
+  };
+
+  update = (params: UpdateItemInput) => {
+    return this.documentClient.update(params).promise();
+  };
+
+  get = (params: GetItemInput) => {
+    return this.documentClient.get(params).promise();
+  };
+
+  batchGet = (params: BatchGetItemInput) => {
+    return this.documentClient.batchGet(params).promise();
+  };
+
+  batchWrite = (params: BatchWriteItemInput) => {
+    return this.documentClient.batchWrite(params).promise();
+  };
+
+  query = (params: QueryInput) => {
+    return this.documentClient.query(params).promise();
+  };
+
+  scan = (params: ScanInput) => {
+    return this.documentClient.scan(params).promise();
+  };
+
+  delete = (params: DeleteItemInput) => {
+    return this.documentClient.delete(params).promise();
+  };
+}
+```
+
+1. create a new item
+
+```ts
+const res = await tableItemSvc.put({
+  TableName: createTableInput.TableName,
+  Item: {
+    user_id: "1232",
+    timestamp: 201,
+  } as PutItemInputAttributeMap,
+});
+```
+
+2. update an existing item (find an item with HASH KEY "1232" and RANGE KEY "200", then update its 'title' attribute value to 'Some title')
+
+```ts
+const res2 = await tableItemSvc.update({
+  TableName: "td_notes_sdk",
+  Key: {
+    user_id: "1232",
+    timestamp: 200,
+  } as Key,
+  UpdateExpression: "set #t = :t",
+  ExpressionAttributeNames: {
+    "#t": "title",
+  },
+  ExpressionAttributeValues: {
+    ":t": "Some title",
+  } as ExpressionAttributeValueMap,
+});
+```
+
+3. delete an existing item (find an item with HASH KEY "1232" and RANGE KEY "2001", then delete it)
+
+```ts
+const res3 = await tableItemSvc.delete({
+  TableName: "td_notes_sdk",
+  Key: {
+    user_id: "1232",
+    timestamp: 201,
+  } as Key,
+});
+```
+
+4. batchWrite - Puts or deletes multiple items in one or more tables. In below example, it deletes an item from "td_notes_sdk" table, and put 2 new items in "td_notes_sdk" table
+
+```ts
+const res4 = await tableItemSvc.batchWrite({
+  RequestItems: {
+    td_notes_sdk: [
+      {
+        DeleteRequest: {
+          Key: {
+            user_id: "1232",
+            timestamp: 200,
+          } as Key,
+        },
+      },
+      {
+        PutRequest: {
+          Item: {
+            user_id: "new_user_id_01",
+            timestamp: 100,
+          } as PutItemInputAttributeMap,
+        },
+      },
+      {
+        PutRequest: {
+          Item: {
+            user_id: "new_user_id_02",
+            timestamp: 200,
+          } as PutItemInputAttributeMap,
+        },
+      },
+    ],
+  },
+});
+```
+
+#### 43. Conditional Writes - Item Level Operations with AWS SDK
+
+5. put - update item if condition is found.
+
+Note: You cannot update primary key(both HASH key and RANGE key)!!
+(You will get an error: ConditionalCheckFailedException: The conditional request failed)
+
+```ts
+const res6 = await tableItemSvc.put({
+  TableName: "td_notes_sdk",
+  Item: {
+    user_id: "new_user_id_02",
+    timestamp: 200,
+    title: "some title",
+    content: "init content",
+  } as PutItemInputAttributeMap,
+  ConditionExpression: "#t = :t",
+  ExpressionAttributeNames: {
+    "#t": "timestamp",
+  },
+  ExpressionAttributeValues: {
+    ":t": 200,
+  } as ExpressionAttributeValueMap,
+});
+```
+
+#### 46. Read Operations - Item Level Operations with AWS SDK
+
+7. Get
+
+```ts
+const res1 = await tableItemSvc.get({
+  TableName: "td_notes_sdk",
+  Key: {
+    user_id: "1232",
+    timestamp: 201,
+  } as Key,
+});
+```
+
+Output
+
+```
+{
+  Item: {
+    content: 'init content',
+    user_id: 'new_user_id_01',
+    title: 'some title',
+    timestamp: 100
+  }
+}
+```
+
+8. Query
+
+```ts
+const res7 = await tableItemSvc.query({
+  TableName: "td_notes_sdk",
+  KeyConditionExpression: "#t = :t",
+  ExpressionAttributeNames: {
+    "#t": "user_id",
+  },
+  ExpressionAttributeValues: {
+    ":t": "new_user_id_01",
+  } as ExpressionAttributeValueMap,
+});
+```
+
+or
+
+```ts
+const res7 = await tableItemSvc.query({
+  TableName: "td_notes_sdk",
+  KeyConditionExpression: "user_id = :t",
+  ExpressionAttributeValues: {
+    ":t": "new_user_id_01",
+  } as ExpressionAttributeValueMap,
+});
+```
+
+Output
+
+```
+{
+  Items: [
+    {
+      content: 'init content',
+      user_id: 'new_user_id_01',
+      title: 'some title',
+      timestamp: 100
+    }
+  ],
+  Count: 1,
+  ScannedCount: 1
+}
+```
+
+9. Scan (can with or without filter)
+
+```ts
+const res8 = await tableItemSvc.scan({
+  TableName: "td_notes_sdk",
+  FilterExpression: "title = :title",
+  ExpressionAttributeValues: {
+    ":title": "some title",
+  } as ExpressionAttributeValueMap,
+});
+```
+
+Output
+
+```
+{
+  Items: [
+    {
+      content: 'init content',
+      user_id: 'new_user_id_03',
+      title: 'some title',
+      timestamp: 200
+    },
+    {
+      content: 'init content',
+      user_id: 'new_user_id_02',
+      title: 'some title',
+      timestamp: 200
+    },
+    {
+      content: 'init content',
+      user_id: 'new_user_id_01',
+      title: 'some title',
+      timestamp: 100
+    }
+  ],
+  Count: 3,
+  ScannedCount: 3
+}
+```
+
+10. batchGet, get multiple items from multiple tables
+
+```ts
+const res9 = await tableItemSvc.batchGet({
+  RequestItems: {
+    td_notes_sdk: {
+      Keys: [
+        {
+          user_id: "new_user_id_02",
+          timestamp: 200,
+        } as Key,
+        {
+          user_id: "new_user_id_01",
+          timestamp: 100,
+        } as Key,
+      ],
+    },
+  },
+});
+```
+
+Output
+
+```
+{
+  "Responses": {
+    "td_notes_sdk": [
+      {
+        "content": "init content",
+        "user_id": "new_user_id_02",
+        "title": "some title",
+        "timestamp": 200
+      },
+      {
+        "content": "init content",
+        "user_id": "new_user_id_01",
+        "title": "some title",
+        "timestamp": 100
+      }
+    ]
+  },
+  "UnprocessedKeys": {}
+}
+```
+
+#### 47. Paginated Reads - Item Level Operations with AWS SDK
+
+By default, the amount of data of Query or Scan can return is limited to 1MB per request.
+
+What if we need more data beyond this limitation?
+
+DynamoDB has an attribute `LastEvaluatedKey`. If it has value, then you can use it as `ExclusiveStartKey` of the Subsequent query to get the next page of data. If `LastEvaluatedKey` is null, means it doesn't have any more data.
+
+```ts
+const res9 = await tableItemSvc.scan({
+  TableName: "td_notes_sdk",
+  Limit: 1,
+});
+```
+
+Output
+
+```
+{
+  "Items": [
+    {
+      "content": "init content",
+      "user_id": "new_user_id_03",
+      "title": "some title",
+      "timestamp": 200
+    }
+  ],
+  "Count": 1,
+  "ScannedCount": 1,
+  "LastEvaluatedKey": {
+    "user_id": "new_user_id_03",
+    "timestamp": 200
+  }
+}
+```
+
+Because the `LastEvaluatedKey` is not null, means it has more data paginated
+
+```ts
+let startKeysOfNextScan: Key | undefined;
+let endKeysFromLastScan: Key | undefined;
+let results: ItemList = [];
+const initialScan = await tableItemSvc.scan({
+  TableName: "td_notes_sdk",
+  Limit: 1,
+});
+if (initialScan.Items?.length) {
+  results = [...results, ...initialScan.Items];
+}
+
+startKeysOfNextScan = endKeysFromLastScan = initialScan.LastEvaluatedKey;
+
+while (!!endKeysFromLastScan) {
+  const SubsequentScan = await tableItemSvc.scan({
+    TableName: "td_notes_sdk",
+    Limit: 1,
+    ExclusiveStartKey: startKeysOfNextScan,
+  });
+  if (SubsequentScan.Items?.length) {
+    results = [...results, ...SubsequentScan.Items];
+  }
+  startKeysOfNextScan = endKeysFromLastScan = SubsequentScan.LastEvaluatedKey;
+}
+
+console.log("final", JSON.stringify(results, null, 2));
+```
+
+Output
+
+```
+ [
+  {
+    "content": "init content",
+    "user_id": "new_user_id_03",
+    "title": "some title",
+    "timestamp": 200
+  },
+  {
+    "content": "init content",
+    "user_id": "new_user_id_02",
+    "title": "some title",
+    "timestamp": 200
+  },
+  {
+    "content": "init content",
+    "user_id": "new_user_id_01",
+    "title": "some title",
+    "timestamp": 100
+  }
+]
+```
