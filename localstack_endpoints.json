@@ -1,0 +1,6 @@
+{
+  "CloudFormation": "http://0.0.0.0:4566",
+  "CloudWatch": "http://0.0.0.0:4566",
+  "Lambda": "http://0.0.0.0:4566",
+  "S3": "http://0.0.0.0:4566"
+}

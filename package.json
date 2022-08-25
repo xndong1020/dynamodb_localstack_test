@@ -1,0 +1,27 @@
+{
+  "name": "dynamodb-comp-guide-udemy",
+  "version": "1.0.0",
+  "description": "#### 3. What is DynamoDB",
+  "main": "index.js",
+  "scripts": {
+    "start": "nodemon src/index.ts",
+    "test": "jest"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "devDependencies": {
+    "@types/jest": "^28.1.7",
+    "@types/node": "^18.7.11",
+    "jest": "^28.1.3",
+    "nodemon": "^2.0.19",
+    "reflect-metadata": "^0.1.13",
+    "ts-jest": "^28.0.8",
+    "ts-node": "^10.9.1",
+    "typedi": "^0.10.0",
+    "typescript": "^4.7.4"
+  },
+  "dependencies": {
+    "aws-sdk": "^2.1201.0"
+  }
+}
